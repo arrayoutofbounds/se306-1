@@ -9,8 +9,6 @@
 #include <sstream>
 #include "math.h"
 #include <unistd.h>
-#include "team4_ros/binIsFull.h"
-
 
 
 // Current velocity of the Robot
@@ -35,9 +33,6 @@ bool nearCollision;
 // Index that points to current position in path index
 int pathIndex;
 
-// Boolean for the direction of the vibrate
-bool VibrateX=false;
-
 geometry_msgs::Point desiredLocations[2];
 
 void sensorCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
@@ -46,15 +41,32 @@ void sensorCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
     bool isNear = false;
     ROS_INFO("Sensor:");
     for (i; i < 60; i++) {
-        if (msg->ranges[i] < 2)
+        if (msg->ranges[i] < 1)
         {
             isNear = true;
             nearCollision = true;
             ROS_INFO("I'm near something! [%f]", msg->ranges[i]);
 
-			    currentVelocity.linear.x = 0;
-                currentVelocity.angular.z = 0;
-			
+            if (i < 20)
+            {
+                // Spin to the left
+                ROS_INFO("Spinning left");
+                currentVelocity.linear.x = 0.5;
+                currentVelocity.angular.z = 1;
+            } else if (i >= 20 && i < 40)
+            {
+                // Move backwards and spin right
+                ROS_INFO("Moving backwards and spinning right");
+                currentVelocity.linear.x = -0.5;
+                currentVelocity.angular.z = -0.5;
+            } else
+            {
+                // Spin to the right
+                ROS_INFO("Spinning right");
+                currentVelocity.linear.x = 0.5;
+                currentVelocity.angular.z = -1;
+            }
+
         }
 
         if (isNear == false)
@@ -64,27 +76,8 @@ void sensorCallback(const sensor_msgs::LaserScan::ConstPtr& msg)
             //currentVelocity.angular.z = 0.0;
         }
         
-        mypub_object.publish(currentVelocity);
 
     }
-}
-
-
-void Vibrate() 
-{     
-    //Update Current Position
-    
-    if (VibrateX == false){
-	//currentVelocity.linear.y = 3;
-    currentVelocity.angular.z = 0.95;
-	VibrateX = true;
-	}
-	else {
-	currentVelocity.linear.x = 0;
-        currentVelocity.angular.z = -1.0;
-
-        VibrateX = false;
-	}
 }
 
 
@@ -129,8 +122,7 @@ void updateCurrentVelocity() {
         {
             // Reset index
             ROS_INFO("Reached final destination");
-			Vibrate();
-            
+            //pathIndex = 0;
         }
         
         return;
@@ -153,11 +145,18 @@ void updateCurrentVelocity() {
         //ROS_INFO("desiredAngle is : %f",desiredAngle); 
 
         // If the deifference between current angle and desired angle is less than 0.1 stop spining
-
+        if (currentAngle - desiredAngle > 0.1 || desiredAngle - currentAngle > 0.1)
+        {
+            // Spin
+            currentVelocity.linear.x = 0;
+            currentVelocity.angular.z = 0.5;
+            
+        } else
+        {
             // Go forward
             currentVelocity.linear.x = 1;
             currentVelocity.angular.z = 0;
-        
+        }
     }
 }
 
@@ -187,16 +186,16 @@ int main (int argc, char **argv)
     // Setup points on robot's path
     geometry_msgs::Point desiredLocation1;
     //desiredLocation1.x = -10;
-    desiredLocation1.x = -1.75;
+    desiredLocation1.x = 0;
     //desiredLocation1.y = -21;
-    desiredLocation1.y = 30;
+    desiredLocation1.y = 0;
     desiredLocation1.z = 0;
 
     geometry_msgs::Point desiredLocation2;
     //desiredLocation2.x = 10;
-    desiredLocation2.x = -1.75;
+    desiredLocation2.x = -10;
     //desiredLocation2.y = 21;
-    desiredLocation2.y = 32;
+    desiredLocation2.y = -10;
     desiredLocation2.z = 0;
 
     desiredLocations[0] = desiredLocation1;
@@ -208,7 +207,7 @@ int main (int argc, char **argv)
     nearCollision = false;    
 
 	// command line ROS arguments/ name remapping 
-	ros::init(argc, argv, "PickerNode"); 
+	ros::init(argc, argv, "AlphaWithSensorRobotNode"); 
 
 	// ROS node hander
 	ros::NodeHandle velPub_handle;
